@@ -218,43 +218,6 @@ function App(): React.JSX.Element {
   // const [message, setMessage] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // 🎯 双层窗口高度同步 - 让Electron窗口跟随内容高度
-  const syncWindowWithContent = (): void => {
-    if (!window.api?.resizeWindowHeight) return
-
-    try {
-      // 🎯 等待下一帧，确保DOM完全渲染
-      requestAnimationFrame(() => {
-        const container = document.querySelector('.app-container') as HTMLElement
-        if (!container) return
-
-        // 🎯 直接获取网页内容的实际高度
-        // 这里就是您说的：输入框 + 输出框 + 帮助栏 + 所有间距
-        const contentHeight = container.getBoundingClientRect().height
-
-        // 🎯 应用安全边界
-        const minHeight = 196 // 最小高度
-        const maxHeight = Math.floor(window.screen.height * 0.8) // 屏幕80%
-        const finalHeight = Math.min(Math.max(Math.ceil(contentHeight) - 2, minHeight), maxHeight) // 🎯 减去2px避免底部空隙
-
-        console.log(`🎯 双层窗口同步:`)
-        console.log(`  📐 网页内容实际高度: ${Math.ceil(contentHeight)}px`)
-        console.log(`  🖥️  Electron窗口将调整为: ${finalHeight}px`)
-        console.log(`  📏 限制范围: ${minHeight}px ~ ${maxHeight}px`)
-
-        // 🎯 只在高度有明显变化时调整（避免频繁调整）
-        const currentHeight = window.innerHeight
-        if (Math.abs(finalHeight - currentHeight) > 3) {
-          window.api.resizeWindowHeight(finalHeight, 300) // 300ms动画
-        }
-      })
-    } catch (error) {
-      console.error('🚨 Window sync failed:', error)
-      // 出错时恢复到安全高度
-      window.api.resizeWindowHeight(196, 300)
-    }
-  }
-
   // 🔊 朗读输入文本
   const handleSpeakInput = (): void => {
     if (!inputText.trim()) {
@@ -329,6 +292,14 @@ function App(): React.JSX.Element {
     }
   }
 
+  useEffect(() => {
+    return window.electron.ipcRenderer.on('trigger-speak-input', handleSpeakInput)
+  }, [inputText, isInputSpeaking])
+
+  useEffect(() => {
+    return window.electron.ipcRenderer.on('trigger-speak-output', handleSpeakOutput)
+  }, [translatedText, isOutputSpeaking, targetLanguage])
+
   // 🔍 测试 DeepSeek 连接
   const testConnection = async (): Promise<void> => {
     setConnectionStatus('testing')
@@ -358,23 +329,10 @@ function App(): React.JSX.Element {
     }
   }, []);
 
-  // 🎯 组件挂载时确保窗口大小正确并测试连接
+  // 组件挂载时测试连接
   useEffect(() => {
-    setTimeout(() => {
-      syncWindowWithContent()
-    }, 100)
-
-    // 启动时测试连接
     testConnection()
   }, [])
-
-  // 🎯 监听翻译结果变化，适时调整窗口大小
-  // 现在结果区域始终显示，所以内容从placeholder变为实际翻译时需要同步窗口
-  useEffect(() => {
-    setTimeout(() => {
-      syncWindowWithContent()
-    }, 100)
-  }, [translatedText]) // 🎯 只监听translatedText变化，因为这会影响结果区域的实际内容
 
   // 🎯 监听输入变化，输入清空时同步清空翻译结果（显示placeholder）
   useEffect(() => {
@@ -407,19 +365,10 @@ function App(): React.JSX.Element {
           if (chunk && !isComplete) {
             // 流式追加文本
             setTranslatedText((prev) => prev + chunk)
-
-            // 🎯 每次更新都同步窗口高度
-            setTimeout(() => {
-              syncWindowWithContent()
-            }, 50)
           }
 
           if (isComplete) {
             console.log(`✅ ${currentProvider} streaming translation completed`)
-            // 🎯 翻译完成后最终同步窗口高度
-            setTimeout(() => {
-              syncWindowWithContent()
-            }, 100)
           }
         })
       } else {
@@ -435,11 +384,6 @@ function App(): React.JSX.Element {
             setTranslatedText((prev) => prev + result[index])
             index++
             setTimeout(simulateStream, 30) // 30ms延迟模拟打字效果
-
-            // 同步窗口高度
-            setTimeout(() => {
-              syncWindowWithContent()
-            }, 10)
           }
         }
         simulateStream()
@@ -650,6 +594,15 @@ function App(): React.JSX.Element {
           >
             Using: {currentProvider.toUpperCase()}
           </span>
+          <button
+            type="button"
+            className="translate-trigger"
+            onClick={handleTranslate}
+            disabled={isLoading || !inputText.trim()}
+            title="trans"
+          >
+            trans
+          </button>
         </div>
         <div style={{ position: 'relative' }}>
           <textarea
@@ -659,7 +612,7 @@ function App(): React.JSX.Element {
             placeholder="Enter the text to translate..."
             className="input-textarea focus-ring"
             disabled={isLoading}
-            rows={4}
+            rows={2}
           />
           <button
             className={`speak-icon ${isInputSpeaking ? 'speaking' : ''} ${!inputText.trim() ? 'disabled' : ''}`}
@@ -749,10 +702,9 @@ function App(): React.JSX.Element {
               {targetLanguage}
             </button>
           )}
-          | Cmd+Enter Translate | ESC Close | ⌘⇧Y Global Toggle
+          | Ctrl/Cmd+Enter Translate | ESC Close | Ctrl+Shift+X Global Toggle
         </p>
         <p className="help-text" style={{ marginTop: '2px' }}>
-          ⌘N new window |
           <button className="help-button" onClick={() => setIsSettingsOpen(true)}>
             settings
           </button>

@@ -248,7 +248,8 @@ body.is-windows .app-container {
 
 /* 输入区域 */
 .input-section {
-  padding: 20px;
+  padding: 15px;
+  padding-bottom: 2px;
   flex: 1; /* 🎯 恢复弹性布局，保持您原来满意的间距 */
 }
 
@@ -283,6 +284,29 @@ body.is-windows .app-container {
 .input-textarea:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.translate-trigger {
+  width: 44px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.72);
+  color: white;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  -webkit-app-region: no-drag;
+}
+
+.translate-trigger:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 0.9);
+}
+
+.translate-trigger:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .button-group {
@@ -335,8 +359,8 @@ body.is-windows .app-container {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;
-  padding: 16px;
-  margin-top: 16px;
+  padding: 15px;
+  margin-top: 10px;
   backdrop-filter: blur(5px);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   max-height: 120px;

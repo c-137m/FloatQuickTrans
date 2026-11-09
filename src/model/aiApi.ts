@@ -59,7 +59,7 @@ export interface AITranslator {
 
 // 🎯 默认翻译配置
 export const DEFAULT_TRANSLATION_CONFIG: TranslationConfig = {
-  temperature: 0.1,
+  temperature: 0.7,
   maxTokens: 2000
 }
 

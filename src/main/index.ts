@@ -25,7 +25,7 @@ class WindowManager {
 
   createWindow(): BrowserWindow {
     const window = new BrowserWindow({
-      width: 520,
+      width: 420,
       height: 196,
       x: 100 + this.windowOffset * 30, // 位置偏移
       y: 100 + this.windowOffset * 30,
@@ -34,7 +34,7 @@ class WindowManager {
       type: 'panel',
       alwaysOnTop: true,
       skipTaskbar: false,
-      resizable: false,
+      resizable: true,
       frame: false,
       transparent: true,
       //透明度
@@ -181,8 +181,12 @@ function createTray(): void {
     tray = new Tray(trayIcon)
 
     // 设置托盘提示文本
-    const shortcutText = process.platform === 'darwin' ? '⌘⇧Y or ⌥Space' : 'Ctrl+Shift+Y'
-    tray.setToolTip(`FloatQuickTrans - Click: Show/Hide, Shortcut: ${shortcutText}, Right-click: Menu`)
+    const shortcutText = process.platform === 'darwin' ? '⌘⇧X or ⌥Space' : 'Ctrl+Shift+X'
+    const speakInputShortcutText = process.platform === 'darwin' ? '⌘⇧C' : 'Ctrl+Shift+C'
+    const speakOutputShortcutText = process.platform === 'darwin' ? '⌘⇧V' : 'Ctrl+Shift+V'
+    tray.setToolTip(
+      `FloatQuickTrans - Show/Hide: ${shortcutText}, Speak input: ${speakInputShortcutText}, Speak output: ${speakOutputShortcutText}`
+    )
 
     // 创建托盘右键菜单
     const contextMenu = Menu.buildFromTemplate([
@@ -335,8 +339,8 @@ function hasVisibleWindow(): boolean {
 // 注册全局快捷键
 function registerGlobalShortcuts(): void {
   try {
-    // ⌘ + ⇧ + Y - 显示/隐藏翻译窗口
-    const toggleShortcut = process.platform === 'darwin' ? 'Command+Shift+Y' : 'Ctrl+Shift+Y'
+    // ⌘ + ⇧ + X / Ctrl + Shift + X - 显示/隐藏翻译窗口
+    const toggleShortcut = process.platform === 'darwin' ? 'Command+Shift+X' : 'Ctrl+Shift+X'
 
     const registered = globalShortcut.register(toggleShortcut, () => {
       console.log('🎯 全局快捷键触发:', toggleShortcut)
@@ -354,12 +358,22 @@ function registerGlobalShortcuts(): void {
       }
     })
 
-    // ⌘ + N / Ctrl + N - 新建窗口
-    const newWindowShortcut = process.platform === 'darwin' ? 'Command+N' : 'Ctrl+N'
+    // ⌘ + ⇧ + C / Ctrl + Shift + C - 朗读输入框
+    const speakInputShortcut = process.platform === 'darwin' ? 'Command+Shift+C' : 'Ctrl+Shift+C'
+    const speakInputRegistered = globalShortcut.register(speakInputShortcut, () => {
+      const firstWindow = windowManager.getFirstWindow()
+      if (firstWindow) {
+        firstWindow.webContents.send('trigger-speak-input')
+      }
+    })
 
-    const newWindowRegistered = globalShortcut.register(newWindowShortcut, () => {
-      console.log('🎯 新建窗口快捷键触发:', newWindowShortcut)
-      createWindow()
+    // ⌘ + ⇧ + V / Ctrl + Shift + V - 朗读输出框
+    const speakOutputShortcut = process.platform === 'darwin' ? 'Command+Shift+V' : 'Ctrl+Shift+V'
+    const speakOutputRegistered = globalShortcut.register(speakOutputShortcut, () => {
+      const firstWindow = windowManager.getFirstWindow()
+      if (firstWindow) {
+        firstWindow.webContents.send('trigger-speak-output')
+      }
     })
 
     if (registered) {
@@ -368,10 +382,16 @@ function registerGlobalShortcuts(): void {
       console.error(`❌ 全局快捷键注册失败: ${toggleShortcut}`)
     }
 
-    if (newWindowRegistered) {
-      console.log(`✅ 新建窗口快捷键注册成功: ${newWindowShortcut}`)
+    if (speakInputRegistered) {
+      console.log(`✅ 输入框发音快捷键注册成功: ${speakInputShortcut}`)
     } else {
-      console.error(`❌ 新建窗口快捷键注册失败: ${newWindowShortcut}`)
+      console.error(`❌ 输入框发音快捷键注册失败: ${speakInputShortcut}`)
+    }
+
+    if (speakOutputRegistered) {
+      console.log(`✅ 输出框发音快捷键注册成功: ${speakOutputShortcut}`)
+    } else {
+      console.error(`❌ 输出框发音快捷键注册失败: ${speakOutputShortcut}`)
     }
 
     // 可选：添加第二个快捷键 Option+Space (macOS专用)
@@ -424,78 +444,6 @@ ipcMain.handle('toggle-always-on-top', () => {
     }
   }
   return { success: false, message: '❌ 窗口未找到' }
-})
-
-// 添加窗口宽度调整功能
-ipcMain.handle('resize-window-width', (event, targetWidth: number, duration: number = 300) => {
-  try {
-    const window = BrowserWindow.fromWebContents(event.sender)
-    if (window) {
-      const [currentWidth, currentHeight] = window.getSize()
-
-      // 创建平滑过渡动画
-      const startWidth = currentWidth
-      const widthDiff = targetWidth - startWidth
-      const startTime = Date.now()
-
-      const animate = (): void => {
-        const elapsed = Date.now() - startTime
-        const progress = Math.min(elapsed / duration, 1)
-
-        // 使用 easeOutCubic 缓动函数，让动画更优雅
-        const easeProgress = 1 - Math.pow(1 - progress, 3)
-        const newWidth = Math.round(startWidth + widthDiff * easeProgress)
-
-        window.setSize(newWidth, currentHeight, false)
-
-        if (progress < 1) {
-          setTimeout(animate, 16) // 约60fps
-        }
-      }
-
-      animate()
-      return { success: true }
-    }
-    return { success: false, error: 'Window not found' }
-  } catch (error) {
-    return { success: false, error: (error as Error).message }
-  }
-})
-
-// 添加窗口高度调整功能
-ipcMain.handle('resize-window-height', (event, targetHeight: number, duration: number = 300) => {
-  try {
-    const window = BrowserWindow.fromWebContents(event.sender)
-    if (window) {
-      const [currentWidth, currentHeight] = window.getSize()
-
-      // 创建平滑过渡动画
-      const startHeight = currentHeight
-      const heightDiff = targetHeight - startHeight
-      const startTime = Date.now()
-
-      const animate = (): void => {
-        const elapsed = Date.now() - startTime
-        const progress = Math.min(elapsed / duration, 1)
-
-        // 使用 easeOutCubic 缓动函数，让动画更优雅
-        const easeProgress = 1 - Math.pow(1 - progress, 3)
-        const newHeight = Math.round(startHeight + heightDiff * easeProgress)
-
-        window.setSize(currentWidth, newHeight, false)
-
-        if (progress < 1) {
-          setTimeout(animate, 16) // 约60fps
-        }
-      }
-
-      animate()
-      return { success: true }
-    }
-    return { success: false, error: 'Window not found' }
-  } catch (error) {
-    return { success: false, error: (error as Error).message }
-  }
 })
 
 // This method will be called when Electron has finished

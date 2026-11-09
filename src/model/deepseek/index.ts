@@ -1,5 +1,6 @@
 // src/model/openai/index.ts
 import OpenAI from 'openai'
+import { TRANSLATION_SYSTEM_PROMPT } from '../translationPrompt'
 
 // 🎯 DeepSeek翻译配置
 const DEEPSEEK_CONFIG = {
@@ -44,23 +45,20 @@ export class DeepSeekTranslator {
         targetLang
       })
 
-      // 构建翻译提示词
-      const translatePrompt = this.buildTranslatePrompt(text, targetLang)
-
       const stream = await this.client.chat.completions.create({
         model: DEEPSEEK_CONFIG.model,
         messages: [
           {
             role: 'system',
-            content: `You are a professional translation assistant. Please accurately translate the user's input text into ${targetLang}, maintaining the original meaning, tone, and format. Only return the translation result without any explanations or additional content.`
+            content: TRANSLATION_SYSTEM_PROMPT
           },
           {
             role: 'user',
-            content: translatePrompt
+            content: text
           }
         ],
         stream: true, // 🌊 启用流式响应
-        temperature: 0.1, // 🎯 很低温度确保翻译准确性
+        temperature: 0.7,
         max_tokens: 2000
       })
 
@@ -99,22 +97,20 @@ export class DeepSeekTranslator {
         targetLang
       })
 
-      const translatePrompt = this.buildTranslatePrompt(text, targetLang)
-
       const response = await this.client.chat.completions.create({
         model: DEEPSEEK_CONFIG.model,
         messages: [
           {
             role: 'system',
-            content: `You are a professional translation assistant. Please accurately translate the user's input text into ${targetLang}, maintaining the original meaning, tone, and format. Only return the translation result without any explanations or additional content.`
+            content: TRANSLATION_SYSTEM_PROMPT
           },
           {
             role: 'user',
-            content: translatePrompt
+            content: text
           }
         ],
         stream: false,
-        temperature: 0.1,
+        temperature: 0.7,
         max_tokens: 2000
       })
 
@@ -166,21 +162,6 @@ export class DeepSeekTranslator {
         'OpenAI Compatible',
         'Multi-language Translation'
       ]
-    }
-  }
-
-  // 🛠️ 构建翻译提示词
-  private buildTranslatePrompt(text: string, targetLang: string): string {
-    // 智能检测翻译方向
-    const hasChineseChars = /[\u4e00-\u9fff]/.test(text)
-
-    if (targetLang === 'Chinese' && hasChineseChars) {
-      // If target is Chinese but input already contains Chinese, may need Chinese-English mutual translation
-      return `Please translate the following text into fluent and natural Chinese:\n\n${text}`
-    } else if (targetLang === 'English') {
-      return `Please translate the following text into natural English:\n\n${text}`
-    } else {
-      return `Please translate the following text into ${targetLang}:\n\n${text}`
     }
   }
 

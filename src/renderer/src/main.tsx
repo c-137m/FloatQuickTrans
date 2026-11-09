@@ -8,12 +8,6 @@ import App from './App'
 declare global {
   interface Window {
     electron: any
-    api: {
-      resizeWindowHeight: (
-        targetHeight: number,
-        duration?: number
-      ) => Promise<{ success: boolean; error?: string }>
-    }
   }
 }
 

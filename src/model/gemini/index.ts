@@ -2,13 +2,14 @@
 // 不再 import getProxyAgent
 // import { getProxyAgent } from '../proxy'
 import { StreamCallback, ModelInfo } from '../aiApi'
+import { buildTranslationPrompt } from '../translationPrompt'
 
 // 🎯 Gemini翻译配置
 const GEMINI_CONFIG = {
   apiKey: '', // 🔑 默认为空，运行时从localStorage获取
   model: 'gemini-2.5-flash', // 使用最新的Flash模型，支持流式
   generationConfig: {
-    temperature: 0.1, // 低温度确保翻译准确性
+    temperature: 0.7,
     maxOutputTokens: 2000
   }
 }
@@ -45,7 +46,7 @@ export class GeminiTranslator {
       })
 
       // 构建翻译提示词
-      const prompt = this.buildTranslatePrompt(text, targetLang)
+      const prompt = buildTranslationPrompt(text)
 
       // 构建请求体
       const body = JSON.stringify({
@@ -115,7 +116,7 @@ export class GeminiTranslator {
         text: text.substring(0, 50) + '...',
         targetLang
       })
-      const prompt = this.buildTranslatePrompt(text, targetLang)
+      const prompt = buildTranslationPrompt(text)
       const body = JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: GEMINI_CONFIG.generationConfig
@@ -189,21 +190,6 @@ export class GeminiTranslator {
         'Google AI Technology',
         'Fast Response Speed'
       ]
-    }
-  }
-
-  // 🛠️ 构建翻译提示词
-  private buildTranslatePrompt(text: string, targetLang: string): string {
-    // 智能检测翻译方向
-    const hasChineseChars = /[\u4e00-\u9fff]/.test(text)
-
-    if (targetLang === 'Chinese' && hasChineseChars) {
-      // If target is Chinese but input already contains Chinese, may need Chinese-English mutual translation
-      return `Please translate the following text into fluent and natural Chinese. Only return the translation result without any explanations:\n\n${text}`
-    } else if (targetLang === 'English') {
-      return `Please translate the following text into natural English. Only return the translation result without any explanations:\n\n${text}`
-    } else {
-      return `Please translate the following text into ${targetLang}. Only return the translation result without any explanations:\n\n${text}`
     }
   }
 
